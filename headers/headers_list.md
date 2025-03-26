@@ -282,33 +282,254 @@ jthread(joining thread)自动join的线程类型
 
 ## 7. 内存管理
 
-| 头文件 | 作用 |
-|--------|------|
-| `<memory>` | 智能指针（`shared_ptr`, `unique_ptr`）和内存工具 |
-| `<memory_resource>` (C++17) | 多态内存资源 |
-| `<new>` | 动态内存管理（如 `operator new`） |
-| `<scoped_allocator>` | 嵌套分配器支持 |
+| 头文件 | 作用 | 主要类和函数 |
+|--------|------|--------------|
+| `<memory>` | 智能指针和内存工具 | `shared_ptr<T>` - 共享所有权指针<br>`unique_ptr<T>` - 独占所有权指针<br>`weak_ptr<T>` - 不增加引用计数的观察指针<br>`make_shared<T>(args...)` - 创建shared_ptr<br>`make_unique<T>(args...)` - 创建unique_ptr<br>`allocator<T>` - 标准内存分配器<br>`pointer_traits` - 指针特性模板 |
+| `<memory_resource>` (C++17) | 多态内存资源 | `memory_resource` - 抽象内存资源接口<br>`synchronized_pool_resource` - 线程安全的内存池<br>`unsynchronized_pool_resource` - 非线程安全内存池<br>`monotonic_buffer_resource` - 单调缓冲区资源 |
+| `<new>` | 动态内存管理 | `operator new` - 全局new运算符<br>`operator delete` - 全局delete运算符<br>`nothrow` - 不抛出异常的new版本<br>`bad_alloc` - 内存分配失败异常<br>`align_val_t` - 对齐类型 |
+| `<scoped_allocator>` | 嵌套分配器 | `scoped_allocator_adaptor<Alloc>` - 嵌套分配器适配器<br>`outer_allocator()` - 获取外层分配器<br>`inner_allocator()` - 获取内层分配器 |
+
+### 典型用法示例
+
+#### 智能指针使用
+```cpp
+#include <memory>
+
+struct Widget {
+    int value;
+    Widget(int v) : value(v) {}
+};
+
+void smart_pointer_demo() {
+    auto sp = std::make_shared<Widget>(42);  // 共享指针
+    auto up = std::make_unique<Widget>(99);  // 独占指针
+    
+    std::weak_ptr<Widget> wp = sp;  // 弱指针
+    if (auto locked = wp.lock()) {  // 提升为shared_ptr
+        // 使用locked
+    }
+}
+```
 
 ## 8. 日期与时间
 
-| 头文件 | 作用 |
-|--------|------|
-| `<chrono>` | 时间库（如 `system_clock`） |
-| `<date>` (C++20) | 日历日期支持 |
+| 头文件 | 作用 | 主要类和函数 |
+|--------|------|--------------|
+| `<chrono>` | 时间库 | `system_clock` - 系统时钟，表示系统范围的实时时钟<br>`now()` - 获取当前时间点<br>`to_time_t()` - 转换为time_t<br>`from_time_t()` - 从time_t转换<br>`steady_clock` - 稳定时钟，适合测量时间间隔<br>`high_resolution_clock` - 高精度时钟（可能是system_clock或steady_clock的别名）<br>`duration<Rep, Period>` - 时间间隔模板类<br>`count()` - 获取时间单位的数量<br>`time_point<Clock, Duration>` - 时间点模板类<br>`time_since_epoch()` - 获取从纪元开始的时间<br>`hours`/`minutes`/`seconds`/`milliseconds`/`microseconds`/`nanoseconds` - 预定义时长类型<br>`duration_cast<D>` - 时长类型转换<br>`floor<D>()` - 向下取整转换<br>`ceil<D>()` - 向上取整转换<br>`round<D>()` - 四舍五入转换 |
+| `<date>` (C++20) | 日历日期支持 | `year` - 年类型，表示公历年<br>`month` - 月类型，表示公历月<br>`day` - 日类型，表示公历日<br>`operator/` - 日期字面量语法（如2023y/8/15d）<br>`year_month_day` - 完整日期类型<br>`sys_days` - 系统时钟天数<br>`weekday` - 星期类型<br>`operator[]` - 获取月份的第n个星期几<br>`last` - 表示月份最后一周<br>`time_zone` - 时区信息<br>`zoned_time` - 带时区的时间点 |
+
+### 典型用法示例
+
+#### 时间间隔测量
+```cpp
+#include <chrono>
+#include <thread>
+#include <iostream>
+
+void measure_duration() {
+    using namespace std::chrono;
+    
+    auto start = high_resolution_clock::now();
+    
+    // 模拟耗时操作
+    std::this_thread::sleep_for(milliseconds(150));
+    
+    auto end = high_resolution_clock::now();
+    auto elapsed = duration_cast<milliseconds>(end - start);
+    
+    std::cout << "Elapsed time: " << elapsed.count() << "ms\n";
+}
+```
+时间点转换
+```cpp
+#include <chrono>
+#include <ctime>
+#include <iostream>
+
+void time_conversion() {
+    using namespace std::chrono;
+    
+    // 获取当前系统时间
+    auto now = system_clock::now();
+    
+    // 转换为time_t
+    std::time_t t = system_clock::to_time_t(now);
+    
+    // 转换为本地时间字符串
+    std::cout << "Current time: " << std::ctime(&t);
+}
+```
+C++20日历日期
+```cpp
+#include <chrono>
+#include <iostream>
+
+void calendar_demo() {
+    using namespace std::chrono;
+    
+    // 创建日期 2023-08-15
+    auto date = August/15/2023;
+    // 等价于 year_month_day{2023y, August, 15d}
+    
+    // 获取星期几
+    auto weekday = year_month_weekday(date).weekday();
+    std::cout << "Weekday: " << weekday << "\n";  // 输出: Tuesday
+    
+    // 日期运算
+    auto next_day = date + days(1);
+    auto next_month = date + months(1);
+    
+    // 格式化输出
+    std::cout << "Date: " << date << "\n";  // 输出: 2023-08-15
+}
+```
+带时区的时间(C++20)
+```cpp
+#include <chrono>
+#include <iostream>
+
+void timezone_demo() {
+    using namespace std::chrono;
+    
+    // 获取当前时间点
+    auto now = system_clock::now();
+    
+    // 创建带时区的时间
+    auto ny_time = zoned_time{"America/New_York", now};
+    auto tokyo_time = zoned_time{"Asia/Tokyo", now};
+    
+    // 输出不同时区的时间
+    std::cout << "New York: " << ny_time << "\n";
+    std::cout << "Tokyo: " << tokyo_time << "\n";
+}
+```
+时间处理建议
+时钟选择：
+使用system_clock获取日历时间
+使用steady_clock测量时间间隔（不受系统时间调整影响）
+high_resolution_clock可能是前两者的别名
+时间单位：
+优先使用duration类型而非原始数值
+明确时间单位（如seconds, milliseconds）
+C++20新特性：
+使用<chrono>的日历日期扩展替代旧的<ctime>
+zoned_time简化时区处理
+日期字面量语法更直观（如2023y/August/15d）
+性能考虑：
+避免频繁的时钟调用（now()）
+对于高频计时，考虑使用steady_clock
+注意：C++20的<chrono>扩展大大简化了日期和时间处理，但需要编译器完全支持C++20标准。对于跨平台开发，需检查目标平台的C++20支持情况。
+
+
 
 ## 9. 类型支持
 
-| 头文件 | 作用 |
-|--------|------|
-| `<typeinfo>` | 运行时类型信息（`typeid`） |
-| `<typeindex>` | 类型索引 |
-| `<type_traits>` | 类型特性（如 `is_integral`） |
-| `<limits>` | 数值特性（如 `numeric_limits`） |
-| `<variant>` (C++17) | 类型安全联合 |
-| `<any>` (C++17) | 任意类型容器 |
-| `<optional>` (C++17) | 可选值容器 |
-| `<compare>` (C++20) | 三路比较支持 |
-| `<concepts>` (C++20) | 概念定义 |
+| 头文件 | 作用 | 主要类和函数 |
+|--------|------|--------------|
+| `<typeinfo>` | 运行时类型信息 | `type_info` - 类型信息类，包含类型的哈希码和名称<br>`typeid(expr)` - 获取表达式的类型信息<br>`before(type_info)` - 类型排序比较<br>`hash_code()` - 获取类型哈希值<br>`name()` - 获取实现定义的类型名称<br>`bad_cast` - dynamic_cast失败时抛出的异常<br>`bad_typeid` - 对空指针应用typeid时抛出的异常 | 
+| `<typeindex>` | 类型索引 | `type_index` - 类型索引包装类，可用于关联容器<br>`hash_code()` - 获取类型哈希值<br>`operator==`/`operator<` - 类型比较操作 |
+| `<type_traits>` | 类型特性 | `is_void<T>` - 检查是否为void类型<br>`is_integral<T>` - 检查是否为整型<br>`is_floating_point<T>` - 检查是否为浮点型<br>`is_pointer<T>` - 检查是否为指针类型<br>`is_reference<T>` - 检查是否为引用类型<br>`remove_const<T>` - 移除const限定符<br>`add_pointer<T>` - 添加指针修饰<br>`enable_if<B,T>` - 条件启用类型<br>`is_invocable<F,Args...>` - 检查是否可调用<br>`invoke_result<F,Args...>` - 获取调用结果类型 |
+| `<limits>` | 数值特性 | `numeric_limits<T>` - 数值类型特性模板<br>`min()` - 返回类型最小值<br>`max()` - 返回类型最大值<br>`lowest()` - 返回类型最小有限值<br>`digits` - 类型位数(不含符号位)<br>`digits10` - 十进制精度位数<br>`is_signed` - 是否为有符号类型<br>`is_integer` - 是否为整数类型<br>`is_exact` - 是否为精确表示 |
+| `<variant>` (C++17) | 类型安全联合 | `variant<Types...>` - 类型安全联合模板<br>`index()` - 返回当前存储类型的索引<br>`valueless_by_exception()` - 检查是否因异常丢失值<br>`holds_alternative<T>(v)` - 检查是否存储特定类型<br>`get<T>(v)` - 获取存储的值<br>`get_if<T>(v)` - 获取指向值的指针<br>`visit(visitor, variants...)` - 访问variant值 |
+| `<any>` (C++17) | 任意类型容器 | `any` - 可存储任意类型的容器<br>`type()` - 获取存储值的type_info<br>`has_value()` - 检查是否包含值<br>`reset()` - 清空容器<br>`emplace<T>(args...)` - 原位构造值<br>`any_cast<T>(a)` - 转换存储的值 |
+| `<optional>` (C++17) | 可选值容器 | `optional<T>` - 可能包含值的容器<br>`value()` - 获取值(无值则抛异常)<br>`value_or(default)` - 获取值或默认值<br>`has_value()` - 检查是否包含值<br>`operator*` - 解引用访问值<br>`operator->` - 成员访问<br>`emplace(args...)` - 原位构造值 |
+| `<compare>` (C++20) | 三路比较 | `strong_ordering` - 强序比较结果类型<br>`partial_ordering` - 偏序比较结果类型<br>`weak_ordering` - 弱序比较结果类型<br>`compare_three_way` - 三路比较函数对象<br>`is_eq`/`is_neq`/`is_lt`/`is_lteq`/`is_gt`/`is_gteq` - 比较结果检查 |
+| `<concepts>` (C++20) | 概念定义 | `integral` - 检查是否为整型<br>`floating_point` - 检查是否为浮点型<br>`same_as<T,U>` - 检查类型是否相同<br>`derived_from<D,B>` - 检查是否为派生类<br>`convertible_to<T,U>` - 检查是否可转换<br>`invocable<F,Args...>` - 检查是否可调用<br>`predicate<F,Args...>` - 检查是否为谓词 |
+
+### 典型用法示例
+
+#### 类型特性检查
+```cpp
+#include <type_traits>
+
+template<typename T>
+void process(T val) {
+    static_assert(std::is_integral_v<T>, 
+                 "T must be an integral type");
+    if constexpr (std::is_signed_v<T>) {
+        // 处理有符号整型
+    } else {
+        // 处理无符号整型
+    }
+}
+```
+variant使用
+```cpp
+#include <variant>
+#include <string>
+#include <iostream>
+
+void variant_example() {
+    std::variant<int, double, std::string> v = "hello";
+    
+    std::visit([](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, int>) {
+            std::cout << "int: " << arg << "\n";
+        } else if constexpr (std::is_same_v<T, double>) {
+            std::cout << "double: " << arg << "\n";
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            std::cout << "string: " << arg << "\n";
+        }
+    }, v);
+}
+```
+optional使用
+```cpp
+#include <optional>
+#include <iostream>
+
+std::optional<int> divide(int a, int b) {
+    if (b == 0) return std::nullopt;
+    return a / b;
+}
+
+void optional_example() {
+    auto result = divide(10, 2);
+    if (result) {
+        std::cout << "Result: " << *result << "\n";
+    } else {
+        std::cout << "Division by zero\n";
+    }
+}
+```
+三路比较(C++20)
+```cpp
+#include <compare>
+#include <iostream>
+
+void three_way_compare() {
+    int a = 5, b = 10;
+    auto res = a <=> b;
+    
+    if (res < 0) {
+        std::cout << "a < b\n";
+    } else if (res > 0) {
+        std::cout << "a > b\n";
+    } else {
+        std::cout << "a == b\n";
+    }
+}
+```
+类型支持建议
+编译时类型检查：
+使用static_assert和类型特性进行编译时验证
+利用if constexpr实现编译时分派
+安全类型操作：
+优先使用variant替代传统的联合体
+使用optional明确表示可能不存在的值
+概念约束：
+C++20中利用concepts约束模板参数
+使用requires子句明确接口要求
+类型转换：
+使用any_cast进行安全的类型转换
+利用visit模式匹配处理variant值
+注意：现代C++的类型支持功能大大增强了类型安全性，减少了运行时错误。合理使用这些工具可以编写出更健壮、更易维护的代码。对于复杂的类型操作，建议结合static_assert和概念约束进行充分的编译时检查。
+variant使用
+```cpp
+
+```
+
 
 ## 10. 异常处理
 
