@@ -824,29 +824,188 @@ C++17弃用<codecvt>，建议使用第三方库如ICU
 
 ## 13. C++20 新特性头文件
 
-| 头文件 | 作用 |
-|--------|------|
-| `<format>` | 文本格式化库 |
-| `<source_location>` | 源代码位置信息 |
-| `<syncstream>` | 同步输出流 |
-| `<stop_token>` | 线程停止令牌 |
-| `<coroutine>` | 协程支持 |
-Replace
-```cpp
+| 头文件 | 作用 | 主要类和函数 |
+|--------|------|--------------|
+| `<format>` | 文本格式化库 | `format(format_str, args...)` - 格式化字符串<br>`format_to(output_it, format_str, args...)` - 格式化输出到迭代器<br>`format_to_n(output_it, n, format_str, args...)` - 带长度限制的格式化<br>`formatted_size(format_str, args...)` - 计算格式化后大小<br>`vformat(format_str, args)` - 使用format_args格式化<br>`format_args` - 格式化参数容器<br>`std::formatter<T>` - 自定义类型格式化特化 |
+| `<source_location>` | 源代码位置信息 | `source_location` - 源代码位置类<br>`current()` - 获取当前位置信息<br>`line()` - 获取行号<br>`column()` - 获取列号<br>`file_name()` - 获取文件名<br>`function_name()` - 获取函数名 |
+| `<syncstream>` | 同步输出流 | `syncbuf` - 同步缓冲区类<br>`osyncstream` - 同步输出流类<br>`emit()` - 刷新缓冲区并同步<br>`get_wrapped()` - 获取底层流对象 |
+| `<stop_token>` | 线程停止令牌 | `stop_token` - 停止令牌(不可变)<br>`stop_source` - 停止信号源<br>`stop_callback` - 停止回调注册<br>`request_stop()` - 请求停止操作<br>`stop_requested()` - 检查是否请求停止<br>`get_token()` - 获取关联的stop_token |
+| `<coroutine>` | 协程支持 | `coroutine_handle<Promise>` - 协程句柄<br>`coroutine_traits` - 协程特性<br>`suspend_always` - 总是挂起awaitable<br>`suspend_never` - 从不挂起awaitable<br>`noop_coroutine()` - 创建无操作协程句柄 |
 
+### 典型用法示例
+
+#### 格式化字符串
+```cpp
+#include <format>
+#include <iostream>
+
+void format_demo() {
+    std::string message = std::format("Hello, {}! The answer is {}.", "world", 42);
+    std::cout << message << std::endl;  // 输出: Hello, world! The answer is 42.
+    
+    // 格式化数字
+    double pi = 3.1415926535;
+    std::cout << std::format("{:.2f}", pi) << std::endl;  // 输出: 3.14
+}
 ```
+源代码位置
+```cpp
+#include <source_location>
+#include <iostream>
+
+void log(const std::string& message, 
+         const std::source_location& loc = std::source_location::current()) {
+    std::cout << loc.file_name() << "(" << loc.line() << "): " << message << std::endl;
+}
+
+void test() {
+    log("Hello from test function");  // 自动捕获调用位置
+}
+```
+同步输出流
+```cpp
+#include <syncstream>
+#include <iostream>
+#include <thread>
+
+void syncstream_demo() {
+    std::osyncstream sync_out(std::cout);
+    
+    std::thread t1([&]{
+        sync_out << "Hello from " << std::this_thread::get_id() << std::endl;
+    });
+    
+    std::thread t2([&]{
+        sync_out << "Hello from " << std::this_thread::get_id() << std::endl;
+    });
+    
+    t1.join();
+    t2.join();
+    // 输出不会交错
+}
+```
+线程停止令牌
+```cpp
+#include <stop_token>
+#include <thread>
+#include <iostream>
+
+void stoppable_thread(std::stop_token token) {
+    while (!token.stop_requested()) {
+        std::cout << "Working..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    std::cout << "Stopped!" << std::endl;
+}
+
+void stop_token_demo() {
+    std::jthread worker(stoppable_thread);
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    worker.request_stop();  // 请求停止
+}
+```
+协程基础
+```cpp
+#include <coroutine>
+#include <iostream>
+
+struct Generator {
+    struct promise_type {
+        int current_value;
+        
+        Generator get_return_object() {
+            return Generator{std::coroutine_handle<promise_type>::from_promise(*this)};
+        }
+        std::suspend_always initial_suspend() { return {}; }
+        std::suspend_always final_suspend() noexcept { return {}; }
+        std::suspend_always yield_value(int value) {
+            current_value = value;
+            return {};
+        }
+        void return_void() {}
+        void unhandled_exception() { std::terminate(); }
+    };
+    
+    std::coroutine_handle<promise_type> coro;
+    
+    explicit Generator(std::coroutine_handle<promise_type> h) : coro(h) {}
+    ~Generator() { if (coro) coro.destroy(); }
+    
+    int value() { return coro.promise().current_value; }
+    bool next() {
+        if (!coro.done()) {
+            coro.resume();
+            return !coro.done();
+        }
+        return false;
+    }
+};
+
+Generator range(int from, int to) {
+    for (int i = from; i < to; ++i) {
+        co_yield i;
+    }
+}
+
+void coroutine_demo() {
+    auto gen = range(1, 5);
+    while (gen.next()) {
+        std::cout << gen.value() << " ";  // 输出: 1 2 3 4
+    }
+}
+```
+C++20新特性建议
+格式化优先：
+优先使用<format>替代传统printf或字符串拼接
+为自定义类型实现formatter特化
+协程注意：
+协程是栈less的，适合异步I/O等场景
+注意协程生命周期管理
+编译器支持程度不一，需检查实现
+线程控制：
+使用stop_token实现优雅的线程停止
+jthread(joining thread)自动管理线程生命周期
+调试支持：
+source_location替代__FILE__和__LINE__宏
+适用于日志记录和断言消息
+注意：C++20特性需要编译器完全支持，使用时需检查编译器版本和功能支持宏。部分功能如协程在不同编译器中的实现可能有差异。
 
 ## 14. 其他
 
-| 头文件 | 作用 |
-|--------|------|
-| `<bit>` (C++20) | 位操作工具 |
-| `<filesystem>` (C++17) | 文件系统操作 |
-| `<numbers>` (C++20) | 数学常数 |
+| 头文件              | 作用              | 主要类和函数               |
+|---------------------|-------------------|----------------------------|
+| `<bit>` (C++20)    | 位操作工具        | - `std::bit_cast`: 安全类型转换工具<br>- `std::has_single_bit`: 检测值是否为单一位<br>- `std::countl_zero`, `std::countl_one`, `std::countr_zero`, `std::countr_one`: 计算位数 |
+| `<filesystem>` (C++17) | 文件系统操作    | - `std::filesystem::path`: 表示路径<br>- `std::filesystem::exists`: 检测路径是否存在<br>- `std::filesystem::create_directory`: 创建目录<br>- `std::filesystem::remove`: 删除文件或目录 |
+| `<numbers>` (C++20) | 数学常数         | - `std::numbers::pi`: 圆周率常量<br>- `std::numbers::e`: 自然对数常量<br>- `std::numbers::sqrt2`: 平方根常量<br>- `std::numbers::phi`: 黄金比例常量 |
 
-Replace
-```cpp
+---
 
-```
+### 详细说明：
+1. **`<bit>` (C++20)**:
+   - **作用**: 提供位操作的工具函数。
+   - **主要类和函数**:
+     - `std::bit_cast`: 用于安全地将一个对象转换为另一个类型。
+     - `std::has_single_bit`: 检查一个值是否只有一位是 `1`。
+     - `std::countl_zero`: 计算值前导零的数量。
+     - `std::countl_one`: 计算值前导一的数量。
+     - `std::countr_zero`: 计算值尾随零的数量。
+     - `std::countr_one`: 计算值尾随一的数量。
+
+2. **`<filesystem>` (C++17)**:
+   - **作用**: 提供文件系统操作的支持。
+   - **主要类和函数**:
+     - `std::filesystem::path`: 用于表示路径。
+     - `std::filesystem::exists`: 检查路径或文件是否存在。
+     - `std::filesystem::create_directory`: 创建新的文件夹。
+     - `std::filesystem::remove`: 删除指定文件或目录。
+
+3. **`<numbers>` (C++20)**:
+   - **作用**: 提供常见的数学常量。
+   - **主要类和函数**:
+     - `std::numbers::pi`: 圆周率的值。
+     - `std::numbers::e`: 自然对数的底数。
+     - `std::numbers::sqrt2`: 平方根常量。
+     - `std::numbers::phi`: 黄金比例。
+
 
 > **注意**：C++标准库在不同版本中会添加或修改头文件，某些头文件可能在较新版本中已被弃用或移除。
