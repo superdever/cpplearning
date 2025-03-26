@@ -97,17 +97,83 @@ std::string s = std::regex_replace("a1b2", re, "-");  // 替换为"-"
 
 ## 5. 输入/输出
 
-| 头文件 | 作用 |
-|--------|------|
-| `<iostream>` | 标准输入/输出流（`cin`, `cout`） |
-| `<fstream>` | 文件流 |
-| `<sstream>` | 字符串流 |
-| `<iomanip>` | 流操纵器（如 `setw`, `setprecision`） |
-| `<ios>` | 基本流特性 |
-| `<iosfwd>` | 流类的前向声明 |
-| `<istream>` | 输入流基类 |
-| `<ostream>` | 输出流基类 |
-| `<streambuf>` | 流缓冲区类 |
+| 头文件 | 作用 | 主要类和函数 |
+|--------|------|--------------|
+| `<iostream>` | 标准输入输出流 | `istream` - 输入流基类<br>`ostream` - 输出流基类<br>`iostream` - 双向流类<br>`cin` - 标准输入流对象<br>`cout` - 标准输出流对象<br>`cerr` - 标准错误流对象(无缓冲)<br>`clog` - 标准日志流对象(有缓冲)<br>`endl` - 插入换行并刷新流<br>`flush` - 刷新流缓冲区 |
+| `<fstream>` | 文件流操作 | `ifstream` - 输入文件流类<br>`ofstream` - 输出文件流类<br>`fstream` - 双向文件流类<br>`open(filename, mode)` - 打开文件<br>`close()` - 关闭文件<br>`is_open()` - 检查文件是否打开<br>`read(buf, size)` - 二进制读取<br>`write(buf, size)` - 二进制写入 |
+| `<sstream>` | 字符串流操作 | `istringstream` - 输入字符串流类<br>`ostringstream` - 输出字符串流类<br>`stringstream` - 双向字符串流类<br>`str()` - 获取/设置底层字符串<br>`str("content")` - 设置流内容 |
+| `<iomanip>` | 流格式控制 | `setw(n)` - 设置字段宽度<br>`setprecision(n)` - 设置浮点精度<br>`setfill(c)` - 设置填充字符<br>`setbase(base)` - 设置数值基数<br>`hex`/`dec`/`oct` - 设置进制<br>`fixed`/`scientific` - 设置浮点格式<br>`boolalpha` - 布尔值字母输出 |
+| `<ios>` | 基础流特性 | `ios_base` - 流基类<br>`basic_ios<CharT>` - 模板流基类<br>`good()` - 检查流状态正常<br>`fail()` - 检查流操作失败<br>`eof()` - 检查到达文件尾<br>`clear()` - 清除状态标志 |
+| `<iosfwd>` | 流类前向声明 | 包含所有流类的前向声明，用于减少编译依赖 |
+| `<istream>` | 输入流操作 | `get()` - 读取单个字符<br>`getline()` - 读取一行<br>`read()` - 读取数据块<br>`ignore(n)` - 跳过n个字符<br>`peek()` - 查看下一个字符<br>`unget()` - 放回字符 |
+| `<ostream>` | 输出流操作 | `put(c)` - 写入单个字符<br>`write()` - 写入数据块<br>`flush()` - 刷新缓冲区 |
+| `<streambuf>` | 流缓冲区 | `basic_streambuf<CharT>` - 流缓冲区模板类<br>`pubsetbuf()` - 设置缓冲区<br>`sgetc()` - 获取当前字符<br>`sbumpc()` - 获取并前进<br>`sputc(c)` - 放入字符 |
+
+### 典型用法示例
+
+#### 控制台输入输出
+```cpp
+#include <iostream>
+#include <iomanip>
+
+int main() {
+    int num;
+    std::cout << "Enter a number: ";
+    std::cin >> num;
+    std::cout << "Hex: " << std::hex << num 
+              << " Oct: " << std::oct << num << std::endl;
+    std::cout << std::setw(10) << std::setfill('*') << 123 << std::endl;
+}
+```
+文件操作
+```cpp
+#include <fstream>
+
+// 写入文件
+std::ofstream out("data.txt");
+out << "Line 1\nLine 2\n";
+out.close();
+
+// 读取文件
+std::ifstream in("data.txt");
+std::string line;
+while(std::getline(in, line)) {
+    std::cout << line << std::endl;
+}
+```
+字符串流
+```cpp
+#include <sstream>
+
+std::stringstream ss;
+ss << "The answer is " << 42;
+std::string s = ss.str();  // "The answer is 42"
+
+int val;
+ss >> val;  // 从流中提取数值
+```
+
+二进制文件操作
+```cpp
+#include <fstream>
+
+struct Data { int a; double b; };
+
+// 写入二进制数据
+Data d{10, 3.14};
+std::ofstream bin_out("data.bin", std::ios::binary);
+bin_out.write(reinterpret_cast<char*>(&d), sizeof(d));
+
+// 读取二进制数据
+Data d2;
+std::ifstream bin_in("data.bin", std::ios::binary);
+bin_in.read(reinterpret_cast<char*>(&d2), sizeof(d2));
+```
+C++的IO流提供了类型安全的输入输出方式，但性能不如C风格的stdio。对于高性能场景，可以考虑：
+使用'\n'代替endl避免不必要的刷新
+减少格式控制操作
+对于大量数据，使用二进制IO
+C++20新增的<format>提供了更高效的格式化方式
 
 ## 6. 多线程与并发
 
