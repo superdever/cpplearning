@@ -177,17 +177,108 @@ C++20新增的<format>提供了更高效的格式化方式
 
 ## 6. 多线程与并发
 
-| 头文件 | 作用 |
-|--------|------|
-| `<thread>` | 线程支持 |
-| `<mutex>` | 互斥锁 |
-| `<shared_mutex>` (C++14) | 共享互斥锁 |
-| `<future>` | 异步结果处理 |
-| `<condition_variable>` | 条件变量 |
-| `<atomic>` | 原子操作 |
-| `<latch>` (C++20) | 线程同步门闩 |
-| `<barrier>` (C++20) | 线程屏障 |
-| `<semaphore>` (C++20) | 信号量 |
+| 头文件 | 作用 | 主要类和函数 |
+|--------|------|--------------|
+| `<thread>` | 线程支持 | `thread` - 线程类<br>`join()` - 等待线程结束<br>`detach()` - 分离线程<br>`get_id()` - 获取线程ID<br>`sleep_for(dur)` - 线程睡眠指定时长<br>`sleep_until(time)` - 线程睡眠到指定时间<br>`hardware_concurrency()` - 返回硬件线程上下文数量 |
+| `<mutex>` | 互斥锁 | `mutex` - 基本互斥锁<br>`lock()` - 获取锁<br>`unlock()` - 释放锁<br>`try_lock()` - 尝试获取锁<br>`recursive_mutex` - 可递归互斥锁<br>`timed_mutex` - 带超时的互斥锁<br>`lock_guard<Mutex>` - RAII锁包装器<br>`unique_lock<Mutex>` - 更灵活的RAII锁包装器 |
+| `<shared_mutex>` (C++14) | 共享互斥锁 | `shared_mutex` - 共享互斥锁<br>`lock_shared()` - 获取共享锁<br>`unlock_shared()` - 释放共享锁<br>`shared_lock<Mutex>` - RAII共享锁包装器 |
+| `<future>` | 异步操作 | `future<T>` - 异步结果容器<br>`promise<T>` - 存储异步结果<br>`async(fn, args...)` - 异步执行函数<br>`packaged_task<F>` - 打包可调用对象<br>`shared_future<T>` - 可共享的future |
+| `<condition_variable>` | 条件变量 | `condition_variable` - 条件变量<br>`wait(lock)` - 等待条件<br>`notify_one()` - 唤醒一个等待线程<br>`notify_all()` - 唤醒所有等待线程<br>`condition_variable_any` - 可与任何锁类型配合的条件变量 |
+| `<atomic>` | 原子操作 | `atomic<T>` - 原子类型模板<br>`load()` - 原子加载<br>`store(val)` - 原子存储<br>`exchange(val)` - 原子交换<br>`compare_exchange_strong()` - 比较并交换<br>`atomic_flag` - 原子标志<br>`memory_order` - 内存顺序枚举 |
+| `<latch>` (C++20) | 线程同步门闩 | `latch` - 一次性线程屏障<br>`count_down()` - 减少计数<br>`wait()` - 等待计数归零<br>`arrive_and_wait()` - 减少计数并等待 |
+| `<barrier>` (C++20) | 线程屏障 | `barrier` - 可重用线程屏障<br>`arrive()` - 到达屏障<br>`wait()` - 等待其他线程<br>`arrive_and_wait()` - 到达并等待<br>`arrive_and_drop()` - 到达并退出 |
+| `<semaphore>` (C++20) | 信号量 | `counting_semaphore` - 计数信号量<br>`acquire()` - 获取信号量<br>`release()` - 释放信号量<br>`try_acquire()` - 尝试获取信号量<br>`binary_semaphore` - 二元信号量别名 |
+
+### 典型用法示例
+
+#### 基本线程创建
+```cpp
+#include <thread>
+#include <iostream>
+
+void hello() {
+    std::cout << "Hello from thread " 
+              << std::this_thread::get_id() << std::endl;
+}
+
+int main() {
+    std::thread t(hello);
+    t.join();  // 等待线程结束
+}
+```
+互斥锁保护共享数据
+```cpp
+#include <mutex>
+#include <thread>
+
+std::mutex mtx;
+int shared_data = 0;
+
+void increment() {
+    std::lock_guard<std::mutex> lock(mtx);
+    ++shared_data;
+}
+```
+
+异步任务
+```cpp
+#include <future>
+#include <iostream>
+
+int compute() {
+    // 长时间计算
+    return 42;
+}
+
+int main() {
+    std::future<int> result = std::async(std::launch::async, compute);
+    std::cout << "Result: " << result.get() << std::endl;
+}
+```
+原子操作
+```cpp
+#include <atomic>
+#include <thread>
+
+std::atomic<int> counter(0);
+
+void increment() {
+    for (int i = 0; i < 1000; ++i) {
+        counter.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+```
+C++20信号量
+```cpp
+#include <atomic>
+#include <thread>
+
+std::atomic<int> counter(0);
+
+void increment() {
+    for (int i = 0; i < 1000; ++i) {
+        counter.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+```
+并发编程建议
+优先使用高层抽象：
+
+使用async和future而非直接创建线程
+使用lock_guard/unique_lock而非手动锁操作
+避免数据竞争：
+使用互斥锁保护共享数据
+考虑使用原子操作实现无锁编程
+性能考虑：
+减少锁的持有时间
+考虑使用读写锁(shared_mutex)优化读多写少场景
+使用无锁数据结构提升并发性能
+C++20新特性：
+latch和barrier简化线程同步
+semaphore提供更灵活的同步原语
+jthread(joining thread)自动join的线程类型
+注意：并发编程容易引入难以调试的问题，建议使用线程分析工具(如TSAN)检查数据竞争和死锁情况。对于复杂并发场景，可以考虑使用更高级的并发库如Intel TBB或Microsoft PPL
+
 
 ## 7. 内存管理
 
